@@ -28,9 +28,6 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
   const [instructions, setInstructions] = useState(
     "You are a helpful assistant in a phone call."
   );
-  const [greeting, setGreeting] = useState(
-    "Hello! Thank you for calling. I'm an AI assistant and I'm here to help you with any questions you might have. How can I assist you today?"
-  );
   const [voice, setVoice] = useState("ash");
   const [tools, setTools] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -49,7 +46,7 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
   // Track changes to determine if there are unsaved modifications
   useEffect(() => {
     setHasUnsavedChanges(true);
-  }, [instructions, greeting, voice, tools]);
+  }, [instructions, voice, tools]);
 
   // Reset save status after a delay when saved
   useEffect(() => {
@@ -66,7 +63,6 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
     try {
       await onSave({
         instructions,
-        greeting,
         voice,
         tools: tools.map((tool) => JSON.parse(tool)),
       });
@@ -188,18 +184,6 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
                 className="min-h-[100px] resize-none"
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none">
-                Greeting Message
-              </label>
-              <Textarea
-                placeholder="Enter greeting message to start conversations"
-                className="min-h-[80px] resize-none"
-                value={greeting}
-                onChange={(e) => setGreeting(e.target.value)}
               />
             </div>
 

@@ -162,23 +162,6 @@ function tryConnectModel() {
       },
     });
     console.log("Session configuration sent to OpenAI");
-    
-    // Start the conversation with a greeting
-    setTimeout(() => {
-      console.log("Starting conversation with greeting...");
-      const greetingMessage = session.saved_config?.greeting || 
-        "Hello! Thank you for calling. I'm an AI assistant and I'm here to help you with any questions you might have. How can I assist you today?";
-      
-      jsonSend(session.modelConn, {
-        type: "conversation.item.create",
-        item: {
-          type: "message",
-          role: "user",
-          content: [{ type: "text", text: greetingMessage }],
-        },
-      });
-      jsonSend(session.modelConn, { type: "response.create" });
-    }, 1000); // Wait 1 second after connection
   });
 
   session.modelConn.on("message", handleModelMessage);
