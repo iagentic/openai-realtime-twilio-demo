@@ -16,9 +16,11 @@ const CallInterface = () => {
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
   const [allConfigsReady, setAllConfigsReady] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
+  const [webVoiceItems, setWebVoiceItems] = useState<Item[]>([]);
   const [callStatus, setCallStatus] = useState("disconnected");
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [sessionConfig, setSessionConfig] = useState<any>(null);
+  const [activeTranscript, setActiveTranscript] = useState<"phone" | "web">("phone");
 
   // Load saved configuration from localStorage on mount
   useEffect(() => {
@@ -116,8 +118,46 @@ const CallInterface = () => {
               setAllConfigsReady={setAllConfigsReady}
             />
             <OutboundCallPanel selectedPhoneNumber={selectedPhoneNumber} />
-            <WebVoiceAgent onTranscriptUpdate={setItems} />
-            <Transcript items={items} />
+            <WebVoiceAgent 
+              onTranscriptUpdate={setWebVoiceItems}
+              onConnectionChange={(connected) => {
+                if (connected) {
+                  setActiveTranscript("web");
+                  setWebVoiceItems([]); // Clear web voice transcript when starting new session
+                }
+              }}
+            />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {activeTranscript === "web" && webVoiceItems.length > 0 ? (
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center justify-between mb-2 px-2">
+                    <span className="text-sm font-medium text-blue-600">Web Voice Transcript</span>
+                    <button
+                      onClick={() => setActiveTranscript("phone")}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Show Phone Calls
+                    </button>
+                  </div>
+                  <Transcript items={webVoiceItems} />
+                </div>
+              ) : (
+                <div className="flex flex-col h-full">
+                  {webVoiceItems.length > 0 && (
+                    <div className="flex items-center justify-between mb-2 px-2">
+                      <span className="text-sm font-medium text-green-600">Phone Call Transcript</span>
+                      <button
+                        onClick={() => setActiveTranscript("web")}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Show Web Voice
+                      </button>
+                    </div>
+                  )}
+                  <Transcript items={items} />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Column: Function Calls */}

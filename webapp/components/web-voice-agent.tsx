@@ -7,9 +7,10 @@ import { Mic, MicOff, Volume2, VolumeX, Phone, PhoneOff } from "lucide-react";
 
 interface WebVoiceAgentProps {
   onTranscriptUpdate?: (items: any[]) => void;
+  onConnectionChange?: (connected: boolean) => void;
 }
 
-const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => {
+const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate, onConnectionChange }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -104,6 +105,12 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
       ws.onopen = () => {
         console.log("Connected to OpenAI Realtime API via websocket server");
         setIsConnected(true);
+        setTranscript([]); // Clear local transcript on new connection
+        
+        // Notify parent component
+        if (onConnectionChange) {
+          onConnectionChange(true);
+        }
         
         // Send session configuration
         ws.send(JSON.stringify({
@@ -157,6 +164,11 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
       ws.onclose = () => {
         console.log("WebSocket connection closed");
         setIsConnected(false);
+        
+        // Notify parent component
+        if (onConnectionChange) {
+          onConnectionChange(false);
+        }
       };
 
     } catch (err: any) {
@@ -208,6 +220,11 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
     setIsConnected(false);
     setIsListening(false);
     setIsSpeaking(false);
+    
+    // Notify parent component
+    if (onConnectionChange) {
+      onConnectionChange(false);
+    }
   };
 
   const handleTextSubmit = (e: React.FormEvent) => {
