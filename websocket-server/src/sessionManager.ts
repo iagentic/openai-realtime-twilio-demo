@@ -16,13 +16,18 @@ interface Session {
 let session: Session = {};
 
 export function handleCallConnection(ws: WebSocket, openAIApiKey: string) {
+  console.log("Setting up Twilio call connection...");
   cleanupConnection(session.twilioConn);
   session.twilioConn = ws;
   session.openAIApiKey = openAIApiKey;
 
   ws.on("message", handleTwilioMessage);
-  ws.on("error", ws.close);
+  ws.on("error", (error) => {
+    console.error("Twilio WebSocket error:", error);
+    ws.close();
+  });
   ws.on("close", () => {
+    console.log("Twilio WebSocket connection closed");
     cleanupConnection(session.modelConn);
     cleanupConnection(session.twilioConn);
     session.twilioConn = undefined;
@@ -79,8 +84,11 @@ function handleTwilioMessage(data: RawData) {
   const msg = parseMessage(data);
   if (!msg) return;
 
+  console.log("Received Twilio message:", msg.event);
+
   switch (msg.event) {
     case "start":
+      console.log("Call started, streamSid:", msg.start.streamSid);
       session.streamSid = msg.start.streamSid;
       session.latestMediaTimestamp = 0;
       session.lastAssistantItem = undefined;
@@ -88,6 +96,7 @@ function handleTwilioMessage(data: RawData) {
       tryConnectModel();
       break;
     case "media":
+      console.log("Received audio data, timestamp:", msg.media.timestamp);
       session.latestMediaTimestamp = msg.media.timestamp;
       if (isOpen(session.modelConn)) {
         jsonSend(session.modelConn, {
@@ -97,6 +106,7 @@ function handleTwilioMessage(data: RawData) {
       }
       break;
     case "close":
+      console.log("Call ended");
       closeAllConnections();
       break;
   }
@@ -116,10 +126,16 @@ function handleFrontendMessage(data: RawData) {
 }
 
 function tryConnectModel() {
-  if (!session.twilioConn || !session.streamSid || !session.openAIApiKey)
+  if (!session.twilioConn || !session.streamSid || !session.openAIApiKey) {
+    console.log("Cannot connect to OpenAI - missing requirements");
     return;
-  if (isOpen(session.modelConn)) return;
+  }
+  if (isOpen(session.modelConn)) {
+    console.log("OpenAI connection already exists");
+    return;
+  }
 
+  console.log("Connecting to OpenAI Realtime API...");
   session.modelConn = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
     {
@@ -131,6 +147,7 @@ function tryConnectModel() {
   );
 
   session.modelConn.on("open", () => {
+    console.log("OpenAI Realtime API connected successfully!");
     const config = session.saved_config || {};
     jsonSend(session.modelConn, {
       type: "session.update",
@@ -144,6 +161,7 @@ function tryConnectModel() {
         ...config,
       },
     });
+    console.log("Session configuration sent to OpenAI");
   });
 
   session.modelConn.on("message", handleModelMessage);

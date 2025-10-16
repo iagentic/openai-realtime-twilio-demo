@@ -76,25 +76,32 @@ let currentCall: WebSocket | null = null;
 let currentLogs: WebSocket | null = null;
 
 wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+  console.log("New WebSocket connection from:", req.headers.host);
   const url = new URL(req.url || "", `http://${req.headers.host}`);
   const parts = url.pathname.split("/").filter(Boolean);
+  console.log("Connection path:", url.pathname, "Parts:", parts);
 
   if (parts.length < 1) {
+    console.log("No path specified, closing connection");
     ws.close();
     return;
   }
 
   const type = parts[0];
+  console.log("Connection type:", type);
 
   if (type === "call") {
+    console.log("Twilio call connection established");
     if (currentCall) currentCall.close();
     currentCall = ws;
     handleCallConnection(currentCall, OPENAI_API_KEY);
   } else if (type === "logs") {
+    console.log("Frontend logs connection established");
     if (currentLogs) currentLogs.close();
     currentLogs = ws;
     handleFrontendConnection(currentLogs);
   } else {
+    console.log("Unknown connection type, closing");
     ws.close();
   }
 });
