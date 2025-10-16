@@ -9,6 +9,7 @@ import cors from "cors";
 import {
   handleCallConnection,
   handleFrontendConnection,
+  handleWebRTCConnection,
 } from "./sessionManager";
 import functions from "./functionHandlers";
 
@@ -104,7 +105,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     console.log("WebRTC connection established");
     if (currentCall) currentCall.close();
     currentCall = ws;
-    handleCallConnection(currentCall, OPENAI_API_KEY);
+    handleWebRTCConnection(currentCall, OPENAI_API_KEY);
   } else {
     console.log("Unknown connection type, closing");
     ws.close();

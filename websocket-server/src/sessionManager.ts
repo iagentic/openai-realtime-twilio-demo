@@ -52,6 +52,34 @@ export function handleFrontendConnection(ws: WebSocket) {
   });
 }
 
+export function handleWebRTCConnection(ws: WebSocket, openAIApiKey: string) {
+  console.log("Setting up WebRTC connection...");
+  cleanupConnection(session.twilioConn);
+  session.twilioConn = ws;
+  session.openAIApiKey = openAIApiKey;
+
+  ws.on("message", handleWebRTCMessage);
+  ws.on("error", (error) => {
+    console.error("WebRTC WebSocket error:", error);
+    ws.close();
+  });
+  ws.on("close", () => {
+    console.log("WebRTC WebSocket connection closed");
+    cleanupConnection(session.modelConn);
+    cleanupConnection(session.twilioConn);
+    session.twilioConn = undefined;
+    session.modelConn = undefined;
+    session.streamSid = undefined;
+    session.lastAssistantItem = undefined;
+    session.responseStartTimestamp = undefined;
+    session.latestMediaTimestamp = undefined;
+    if (!session.frontendConn) session = {};
+  });
+
+  // Connect to OpenAI immediately for WebRTC
+  connectWebRTCModel();
+}
+
 async function handleFunctionCall(item: { name: string; arguments: string }) {
   console.log("Handling function call:", item);
   const fnDef = functions.find((f) => f.schema.name === item.name);
@@ -125,6 +153,23 @@ function handleFrontendMessage(data: RawData) {
   }
 }
 
+function handleWebRTCMessage(data: RawData) {
+  const msg = parseMessage(data);
+  if (!msg) return;
+
+  console.log("Received WebRTC message:", msg.type);
+
+  // Forward all messages to OpenAI Realtime API
+  if (isOpen(session.modelConn)) {
+    jsonSend(session.modelConn, msg);
+  }
+
+  // Handle session configuration
+  if (msg.type === "session.update") {
+    session.saved_config = msg.session;
+  }
+}
+
 function tryConnectModel() {
   if (!session.twilioConn || !session.streamSid || !session.openAIApiKey) {
     console.log("Cannot connect to OpenAI - missing requirements");
@@ -165,6 +210,47 @@ function tryConnectModel() {
   });
 
   session.modelConn.on("message", handleModelMessage);
+  session.modelConn.on("error", closeModel);
+  session.modelConn.on("close", closeModel);
+}
+
+function connectWebRTCModel() {
+  if (!session.twilioConn || !session.openAIApiKey) {
+    console.log("Cannot connect to OpenAI - missing requirements for WebRTC");
+    return;
+  }
+  if (isOpen(session.modelConn)) {
+    console.log("OpenAI connection already exists for WebRTC");
+    return;
+  }
+
+  console.log("Connecting to OpenAI Realtime API for WebRTC...");
+  session.modelConn = new WebSocket(
+    "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
+    {
+      headers: {
+        Authorization: `Bearer ${session.openAIApiKey}`,
+        "OpenAI-Beta": "realtime=v1",
+      },
+    }
+  );
+
+  session.modelConn.on("open", () => {
+    console.log("OpenAI Realtime API connected successfully for WebRTC!");
+    const config = session.saved_config || {};
+    jsonSend(session.modelConn, {
+      type: "session.update",
+      session: {
+        modalities: ["text"], // WebRTC uses text only for now
+        turn_detection: { type: "server_vad" },
+        voice: "ash",
+        ...config,
+      },
+    });
+    console.log("WebRTC session configuration sent to OpenAI");
+  });
+
+  session.modelConn.on("message", handleWebRTCModelMessage);
   session.modelConn.on("error", closeModel);
   session.modelConn.on("close", closeModel);
 }
@@ -222,6 +308,45 @@ function handleModelMessage(data: RawData) {
           });
       }
       break;
+    }
+  }
+}
+
+function handleWebRTCModelMessage(data: RawData) {
+  const event = parseMessage(data);
+  if (!event) return;
+
+  console.log("WebRTC Model message:", event.type);
+
+  // Forward all messages back to the WebRTC client
+  if (session.twilioConn) {
+    jsonSend(session.twilioConn, event);
+  }
+
+  // Also forward to frontend if connected
+  jsonSend(session.frontendConn, event);
+
+  // Handle function calls
+  if (event.type === "response.output_item.done") {
+    const { item } = event;
+    if (item.type === "function_call") {
+      handleFunctionCall(item)
+        .then((output) => {
+          if (session.modelConn) {
+            jsonSend(session.modelConn, {
+              type: "conversation.item.create",
+              item: {
+                type: "function_call_output",
+                call_id: item.call_id,
+                output: JSON.stringify(output),
+              },
+            });
+            jsonSend(session.modelConn, { type: "response.create" });
+          }
+        })
+        .catch((err) => {
+          console.error("Error handling function call:", err);
+        });
     }
   }
 }
