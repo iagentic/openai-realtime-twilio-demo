@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Volume2, VolumeX, Phone, PhoneOff, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Phone, PhoneOff } from "lucide-react";
 
 interface WebVoiceAgentProps {
   onTranscriptUpdate?: (items: any[]) => void;
@@ -16,8 +16,8 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
   const [transcript, setTranscript] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
 
+  const wsRef = useRef<WebSocket | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -48,20 +48,28 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
 
     recognitionRef.current.onresult = (event: any) => {
       let finalTranscript = '';
-      let interimTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
         }
       }
 
-      if (finalTranscript) {
-        console.log("Final transcript:", finalTranscript);
-        handleUserMessage(finalTranscript);
+      if (finalTranscript && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        console.log("Sending text to OpenAI Realtime API:", finalTranscript);
+        
+        // Send text message to OpenAI Realtime API
+        wsRef.current.send(JSON.stringify({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [{ type: "text", text: finalTranscript }],
+          },
+        }));
+        
+        wsRef.current.send(JSON.stringify({ type: "response.create" }));
       }
     };
 
@@ -79,20 +87,120 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
   }, []);
 
-  const startVoiceChat = () => {
-    if (recognitionRef.current && !isListening) {
+  const connectToRealtimeAPI = async () => {
+    try {
       setError(null);
-      setIsConnected(true);
-      recognitionRef.current.start();
+      
+      // Connect to your websocket server's webrtc endpoint
+      const ws = new WebSocket(`wss://ws.iagentic.ai/webrtc`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("Connected to OpenAI Realtime API via websocket server");
+        setIsConnected(true);
+        
+        // Send session configuration
+        ws.send(JSON.stringify({
+          type: "session.update",
+          session: {
+            modalities: ["text", "audio"],
+            turn_detection: { type: "server_vad" },
+            voice: "ash",
+            input_audio_format: "pcm16",
+            output_audio_format: "pcm16",
+          },
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log("Received from OpenAI Realtime API:", data);
+
+        // Handle different message types
+        switch (data.type) {
+          case "response.audio.delta":
+            // Play audio response
+            playAudio(data.delta);
+            break;
+          case "conversation.item.created":
+            // Update transcript
+            updateTranscript(data.item);
+            break;
+          case "input_audio_buffer.speech_started":
+            setIsListening(true);
+            break;
+          case "input_audio_buffer.speech_stopped":
+            setIsListening(false);
+            break;
+          case "response.audio_transcript.delta":
+            // Update transcript with AI response
+            updateTranscript({
+              type: "message",
+              role: "assistant",
+              content: [{ type: "text", text: data.delta }]
+            });
+            break;
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setError("Connection error - check if websocket server is running");
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket connection closed");
+        setIsConnected(false);
+      };
+
+    } catch (err: any) {
+      console.error("Error connecting:", err);
+      setError(err.message || "Failed to connect");
     }
+  };
+
+  const playAudio = (audioData: string) => {
+    // For now, we'll use text-to-speech instead of raw audio
+    // The websocket server should handle audio conversion
+    console.log("Audio received, would play:", audioData);
+    setIsSpeaking(true);
+    
+    // Simulate speaking
+    setTimeout(() => {
+      setIsSpeaking(false);
+    }, 2000);
+  };
+
+  const updateTranscript = (item: any) => {
+    const transcriptItem = {
+      ...item,
+      timestamp: new Date().toLocaleTimeString(),
+      status: "completed"
+    };
+    
+    setTranscript(prev => [...prev, transcriptItem]);
+    
+    if (onTranscriptUpdate) {
+      onTranscriptUpdate([...transcript, transcriptItem]);
+    }
+  };
+
+  const startVoiceChat = () => {
+    connectToRealtimeAPI();
   };
 
   const endVoiceChat = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
     }
     if (synthesisRef.current) {
       speechSynthesis.cancel();
@@ -102,100 +210,22 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
     setIsSpeaking(false);
   };
 
-  const handleUserMessage = async (userMessage: string) => {
-    // Add user message to transcript
-    const userItem = {
-      id: Date.now().toString(),
-      type: "message",
-      role: "user",
-      content: [{ type: "text", text: userMessage }],
-      timestamp: new Date().toLocaleTimeString(),
-      status: "completed"
-    };
-    
-    setTranscript(prev => [...prev, userItem]);
-    if (onTranscriptUpdate) {
-      onTranscriptUpdate([...transcript, userItem]);
-    }
-
-    // Send to OpenAI API via your backend
-    try {
-      setIsTyping(true);
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversation_history: transcript
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
-      }
-
-      const data = await response.json();
-      const aiResponse = data.response;
-
-      // Add AI response to transcript
-      const aiItem = {
-        id: (Date.now() + 1).toString(),
-        type: "message",
-        role: "assistant",
-        content: [{ type: "text", text: aiResponse }],
-        timestamp: new Date().toLocaleTimeString(),
-        status: "completed"
-      };
-
-      setTranscript(prev => [...prev, aiItem]);
-      if (onTranscriptUpdate) {
-        onTranscriptUpdate([...transcript, userItem, aiItem]);
-      }
-
-      // Speak the AI response
-      speakText(aiResponse);
-
-    } catch (error) {
-      console.error("Error getting AI response:", error);
-      setError("Failed to get AI response");
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const speakText = (text: string) => {
-    if (synthesisRef.current) {
-      speechSynthesis.cancel();
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-    };
-
-    utterance.onerror = (event) => {
-      console.error("Speech synthesis error:", event.error);
-      setIsSpeaking(false);
-    };
-
-    synthesisRef.current = utterance;
-    speechSynthesis.speak(utterance);
-  };
-
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim()) {
-      handleUserMessage(message.trim());
+    if (message.trim() && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log("Sending text message:", message.trim());
+      
+      // Send text message to OpenAI Realtime API
+      wsRef.current.send(JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "text", text: message.trim() }],
+        },
+      }));
+      
+      wsRef.current.send(JSON.stringify({ type: "response.create" }));
       setMessage("");
     }
   };
@@ -218,12 +248,12 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
           {!isConnected ? (
             <Button onClick={startVoiceChat} className="flex items-center gap-2">
               <Phone className="h-4 w-4" />
-              Start Voice Chat
+              Connect to Realtime API
             </Button>
           ) : (
             <Button onClick={endVoiceChat} variant="destructive" className="flex items-center gap-2">
               <PhoneOff className="h-4 w-4" />
-              End Chat
+              Disconnect
             </Button>
           )}
         </div>
@@ -243,14 +273,10 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
               <div className="flex items-center gap-2">
                 {isSpeaking ? (
                   <Volume2 className="h-5 w-5 text-blue-500 animate-pulse" />
-                ) : isTyping ? (
-                  <MessageSquare className="h-5 w-5 text-green-500 animate-pulse" />
                 ) : (
                   <VolumeX className="h-5 w-5 text-gray-400" />
                 )}
-                <span className="text-sm">
-                  {isSpeaking ? "Speaking" : isTyping ? "Thinking" : "Ready"}
-                </span>
+                <span className="text-sm">Speaking</span>
               </div>
             </div>
 
@@ -258,8 +284,7 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
               <p className="text-sm text-gray-600">
                 {isListening ? "Listening for your voice..." : 
                  isSpeaking ? "AI is speaking..." : 
-                 isTyping ? "AI is thinking..." :
-                 "Connected - Start talking!"}
+                 "Connected to OpenAI Realtime API - Start talking!"}
               </p>
             </div>
 
@@ -276,13 +301,34 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
                 Send
               </Button>
             </form>
+
+            {/* Start/Stop voice recognition */}
+            <div className="flex justify-center">
+              {!isListening ? (
+                <Button 
+                  onClick={() => recognitionRef.current?.start()} 
+                  variant="outline" 
+                  size="sm"
+                >
+                  Start Listening
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => recognitionRef.current?.stop()} 
+                  variant="outline" 
+                  size="sm"
+                >
+                  Stop Listening
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
         <div className="mt-4 p-3 bg-blue-50 rounded-md">
           <p className="text-xs text-blue-700">
-            <strong>Web Voice Agent:</strong> Uses browser speech recognition and synthesis. 
-            No external dependencies required!
+            <strong>Web Voice Agent:</strong> Connects to OpenAI Realtime API via your websocket server. 
+            Uses browser speech recognition with real-time AI responses!
           </p>
         </div>
       </CardContent>
