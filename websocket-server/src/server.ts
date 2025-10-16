@@ -100,6 +100,11 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     if (currentLogs) currentLogs.close();
     currentLogs = ws;
     handleFrontendConnection(currentLogs);
+  } else if (type === "webrtc") {
+    console.log("WebRTC connection established");
+    if (currentCall) currentCall.close();
+    currentCall = ws;
+    handleCallConnection(currentCall, OPENAI_API_KEY);
   } else {
     console.log("Unknown connection type, closing");
     ws.close();

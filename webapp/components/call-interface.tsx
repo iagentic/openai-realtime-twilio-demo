@@ -10,6 +10,7 @@ import { Item } from "@/components/types";
 import handleRealtimeEvent from "@/lib/handle-realtime-event";
 import PhoneNumberChecklist from "@/components/phone-number-checklist";
 import OutboundCallPanel from "@/components/outbound-call-panel";
+import WebVoiceAgent from "@/components/web-voice-agent";
 
 const CallInterface = () => {
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
@@ -81,6 +82,7 @@ const CallInterface = () => {
               setAllConfigsReady={setAllConfigsReady}
             />
             <OutboundCallPanel selectedPhoneNumber={selectedPhoneNumber} />
+            <WebVoiceAgent onTranscriptUpdate={setItems} />
             <Transcript items={items} />
           </div>
 
