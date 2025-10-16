@@ -53,7 +53,7 @@ const WebVoiceAgent: React.FC<WebVoiceAgentProps> = ({ onTranscriptUpdate }) => 
       audioStreamRef.current = stream;
       
       // Create WebSocket connection to your backend
-      const ws = new WebSocket(`ws://${window.location.hostname}:8081/webrtc`);
+      const ws = new WebSocket(`wss://ws.iagentic.ai/webrtc`);
       wsRef.current = ws;
 
       ws.onopen = () => {

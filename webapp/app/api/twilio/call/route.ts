@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     // Get the webhook URL for the call
-    const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || `http://${process.env.NEXT_PUBLIC_SERVER_URL || 'localhost:8081'}/twiml`;
+    const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_URL || `https://ws.iagentic.ai/twiml`;
 
     // Create the outbound call
     const call = await twilioClient.calls.create({

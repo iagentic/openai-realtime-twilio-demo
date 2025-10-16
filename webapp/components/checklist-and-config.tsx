@@ -77,8 +77,8 @@ export default function ChecklistAndConfig({
         // 3. Check local server & public URL
         let foundPublicUrl = "";
         try {
-          // Use the current host IP instead of localhost
-          const serverUrl = `http://${window.location.hostname}:8081/public-url`;
+          // Use the WebSocket domain
+          const serverUrl = `https://ws.iagentic.ai/public-url`;
           console.log("Checking websocket server at:", serverUrl);
           const resLocal = await fetch(serverUrl);
           if (resLocal.ok) {
