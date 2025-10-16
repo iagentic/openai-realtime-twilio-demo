@@ -9,6 +9,7 @@ import FunctionCallsPanel from "@/components/function-calls-panel";
 import { Item } from "@/components/types";
 import handleRealtimeEvent from "@/lib/handle-realtime-event";
 import PhoneNumberChecklist from "@/components/phone-number-checklist";
+import OutboundCallPanel from "@/components/outbound-call-panel";
 
 const CallInterface = () => {
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
@@ -79,6 +80,7 @@ const CallInterface = () => {
               allConfigsReady={allConfigsReady}
               setAllConfigsReady={setAllConfigsReady}
             />
+            <OutboundCallPanel selectedPhoneNumber={selectedPhoneNumber} />
             <Transcript items={items} />
           </div>
 

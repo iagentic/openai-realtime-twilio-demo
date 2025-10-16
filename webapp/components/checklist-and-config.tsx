@@ -71,7 +71,7 @@ export default function ChecklistAndConfig({
             numbersData[0];
           setCurrentNumberSid(selected.sid);
           setCurrentVoiceUrl(selected.voiceUrl || "");
-          setSelectedPhoneNumber(selected.friendlyName || "");
+          setSelectedPhoneNumber(selected.phoneNumber || selected.friendlyName || "");
         }
 
         // 3. Check local server & public URL
@@ -181,7 +181,7 @@ export default function ChecklistAndConfig({
                   setCurrentNumberSid(value);
                   const selected = phoneNumbers.find((p) => p.sid === value);
                   if (selected) {
-                    setSelectedPhoneNumber(selected.friendlyName || "");
+                    setSelectedPhoneNumber(selected.phoneNumber || selected.friendlyName || "");
                     setCurrentVoiceUrl(selected.voiceUrl || "");
                   }
                 }}
