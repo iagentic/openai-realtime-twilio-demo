@@ -222,7 +222,7 @@ export default function ChecklistAndConfig({
       {
         label: "Start ngrok",
         done: publicUrlAccessible,
-        description: window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' 
+        description: typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' 
           ? "Not needed - running on VM with public IP" 
           : "Then set ngrok URL in websocket-server/.env",
         field: (
@@ -294,7 +294,7 @@ export default function ChecklistAndConfig({
 
   useEffect(() => {
     // If running on VM (not localhost), automatically mark ngrok as accessible
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && localServerUp) {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && localServerUp) {
       setPublicUrlAccessible(true);
     } else if (!ready) {
       checkNgrok();
