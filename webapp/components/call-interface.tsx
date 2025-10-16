@@ -18,6 +18,23 @@ const CallInterface = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [callStatus, setCallStatus] = useState("disconnected");
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [sessionConfig, setSessionConfig] = useState<any>(null);
+
+  // Load saved configuration from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sessionConfig');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          setSessionConfig(config);
+          console.log("Loaded saved session configuration from localStorage:", config);
+        } catch (error) {
+          console.error("Error parsing saved session config:", error);
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (allConfigsReady && !ws) {
@@ -26,6 +43,16 @@ const CallInterface = () => {
       newWs.onopen = () => {
         console.log("Connected to logs websocket");
         setCallStatus("connected");
+        
+        // Automatically send saved configuration when WebSocket connects
+        if (sessionConfig) {
+          const updateEvent = {
+            type: "session.update",
+            session: sessionConfig,
+          };
+          console.log("Auto-sending session configuration on connect:", updateEvent);
+          newWs.send(JSON.stringify(updateEvent));
+        }
       };
 
       newWs.onmessage = (event) => {
@@ -42,7 +69,7 @@ const CallInterface = () => {
 
       setWs(newWs);
     }
-  }, [allConfigsReady, ws]);
+  }, [allConfigsReady, ws, sessionConfig]);
 
   return (
     <div className="h-screen bg-white flex flex-col">
@@ -60,12 +87,19 @@ const CallInterface = () => {
             <SessionConfigurationPanel
               callStatus={callStatus}
               onSave={(config) => {
+                // Save configuration to state
+                setSessionConfig(config);
+                
+                // Also save to localStorage for persistence
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('sessionConfig', JSON.stringify(config));
+                }
+                
+                // If WebSocket is already connected, send immediately
                 if (ws && ws.readyState === WebSocket.OPEN) {
                   const updateEvent = {
                     type: "session.update",
-                    session: {
-                      ...config,
-                    },
+                    session: config,
                   };
                   console.log("Sending update event:", updateEvent);
                   ws.send(JSON.stringify(updateEvent));

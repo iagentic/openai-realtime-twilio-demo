@@ -43,6 +43,27 @@ const SessionConfigurationPanel: React.FC<SessionConfigurationPanelProps> = ({
   // Custom hook to fetch backend tools every 3 seconds
   const backendTools = useBackendTools(`https://ws.iagentic.ai/tools`, 3000);
 
+  // Load saved configuration from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sessionConfig');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          if (config.instructions) setInstructions(config.instructions);
+          if (config.voice) setVoice(config.voice);
+          if (config.tools) {
+            setTools(config.tools.map((tool: any) => JSON.stringify(tool, null, 2)));
+          }
+          console.log("Loaded saved session configuration in panel:", config);
+          setHasUnsavedChanges(false);
+        } catch (error) {
+          console.error("Error loading saved session config:", error);
+        }
+      }
+    }
+  }, []);
+
   // Track changes to determine if there are unsaved modifications
   useEffect(() => {
     setHasUnsavedChanges(true);
