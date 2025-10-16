@@ -50,7 +50,8 @@ app.get("/health", (req, res) => {
 
 app.all("/twiml", (req, res) => {
   if (!PUBLIC_URL) {
-    return res.status(500).send("PUBLIC_URL not configured");
+    res.status(500).send("PUBLIC_URL not configured");
+    return;
   }
   
   try {
