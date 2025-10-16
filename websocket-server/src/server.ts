@@ -24,7 +24,10 @@ if (!OPENAI_API_KEY) {
 }
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins for now
+  credentials: true
+}));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
@@ -37,13 +40,30 @@ app.get("/public-url", (req, res) => {
   res.json({ publicUrl: PUBLIC_URL });
 });
 
-app.all("/twiml", (req, res) => {
-  const wsUrl = new URL(PUBLIC_URL);
-  wsUrl.protocol = "wss:";
-  wsUrl.pathname = `/call`;
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    publicUrl: PUBLIC_URL 
+  });
+});
 
-  const twimlContent = twimlTemplate.replace("{{WS_URL}}", wsUrl.toString());
-  res.type("text/xml").send(twimlContent);
+app.all("/twiml", (req, res) => {
+  if (!PUBLIC_URL) {
+    return res.status(500).send("PUBLIC_URL not configured");
+  }
+  
+  try {
+    const wsUrl = new URL(PUBLIC_URL);
+    wsUrl.protocol = "wss:";
+    wsUrl.pathname = `/call`;
+
+    const twimlContent = twimlTemplate.replace("{{WS_URL}}", wsUrl.toString());
+    res.type("text/xml").send(twimlContent);
+  } catch (error) {
+    console.error("Error generating TwiML:", error);
+    res.status(500).send("Error generating TwiML");
+  }
 });
 
 // New endpoint to list available tools (schemas)
@@ -78,6 +98,8 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Public URL: ${PUBLIC_URL}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

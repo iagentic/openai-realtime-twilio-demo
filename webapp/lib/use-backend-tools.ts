@@ -8,6 +8,7 @@ export function useBackendTools(url: string, intervalMs: number) {
     let isMounted = true;
 
     const fetchTools = () => {
+      console.log("Fetching backend tools from:", url);
       fetch(url)
         .then((res) => res.json())
         .then((data) => {

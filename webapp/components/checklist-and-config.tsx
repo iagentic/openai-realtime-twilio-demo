@@ -77,7 +77,10 @@ export default function ChecklistAndConfig({
         // 3. Check local server & public URL
         let foundPublicUrl = "";
         try {
-          const resLocal = await fetch("http://localhost:8081/public-url");
+          // Use the current host IP instead of localhost
+          const serverUrl = `http://${window.location.hostname}:8081/public-url`;
+          console.log("Checking websocket server at:", serverUrl);
+          const resLocal = await fetch(serverUrl);
           if (resLocal.ok) {
             const pubData = await resLocal.json();
             foundPublicUrl = pubData?.publicUrl || "";
