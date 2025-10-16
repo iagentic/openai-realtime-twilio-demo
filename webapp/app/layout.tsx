@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "OpenAI Realtime + Twilio",
+  title: "iAgentic Twilio",
   description:
-    "Sample phone call assistant app for OpenAI Realtime API and Twilio",
+    "iAgentic phone call assistant powered by OpenAI Realtime API and Twilio",
 };
 
 export default function RootLayout({
