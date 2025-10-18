@@ -3,6 +3,7 @@ import functions from "./functionHandlers";
 
 interface Session {
   twilioConn?: WebSocket;
+  webRTCConn?: WebSocket;
   frontendConn?: WebSocket;
   modelConn?: WebSocket;
   streamSid?: string;
@@ -54,8 +55,8 @@ export function handleFrontendConnection(ws: WebSocket) {
 
 export function handleWebRTCConnection(ws: WebSocket, openAIApiKey: string) {
   console.log("Setting up WebRTC connection...");
-  cleanupConnection(session.twilioConn);
-  session.twilioConn = ws;
+  cleanupConnection(session.webRTCConn);
+  session.webRTCConn = ws;
   session.openAIApiKey = openAIApiKey;
 
   ws.on("message", handleWebRTCMessage);
@@ -66,14 +67,14 @@ export function handleWebRTCConnection(ws: WebSocket, openAIApiKey: string) {
   ws.on("close", () => {
     console.log("WebRTC WebSocket connection closed");
     cleanupConnection(session.modelConn);
-    cleanupConnection(session.twilioConn);
-    session.twilioConn = undefined;
+    cleanupConnection(session.webRTCConn);
+    session.webRTCConn = undefined;
     session.modelConn = undefined;
     session.streamSid = undefined;
     session.lastAssistantItem = undefined;
     session.responseStartTimestamp = undefined;
     session.latestMediaTimestamp = undefined;
-    if (!session.frontendConn) session = {};
+    if (!session.frontendConn && !session.twilioConn) session = {};
   });
 
   // Connect to OpenAI immediately for WebRTC
@@ -215,7 +216,7 @@ function tryConnectModel() {
 }
 
 function connectWebRTCModel() {
-  if (!session.twilioConn || !session.openAIApiKey) {
+  if (!session.webRTCConn || !session.openAIApiKey) {
     console.log("Cannot connect to OpenAI - missing requirements for WebRTC");
     return;
   }
@@ -319,8 +320,8 @@ function handleWebRTCModelMessage(data: RawData) {
   console.log("WebRTC Model message:", event.type);
 
   // Forward all messages back to the WebRTC client
-  if (session.twilioConn) {
-    jsonSend(session.twilioConn, event);
+  if (session.webRTCConn) {
+    jsonSend(session.webRTCConn, event);
   }
 
   // Also forward to frontend if connected

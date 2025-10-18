@@ -23,6 +23,7 @@ const Transcript: React.FC<TranscriptProps> = ({ items }) => {
       it.type === "function_call_output"
   );
 
+
   return (
     <Card className="h-full flex flex-col overflow-hidden">
       <CardContent className="flex-1 h-full min-h-0 overflow-hidden flex flex-col p-0">

@@ -29,6 +29,7 @@ const CallInterface = () => {
     }
   }, [webVoiceItems.length, items.length]);
 
+
   // Load saved configuration from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
