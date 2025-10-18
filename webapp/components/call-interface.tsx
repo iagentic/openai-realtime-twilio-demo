@@ -10,24 +10,15 @@ import { Item } from "@/components/types";
 import handleRealtimeEvent from "@/lib/handle-realtime-event";
 import PhoneNumberChecklist from "@/components/phone-number-checklist";
 import OutboundCallPanel from "@/components/outbound-call-panel";
-import WebVoiceAgent from "@/components/web-voice-agent";
 
 const CallInterface = () => {
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState("");
   const [allConfigsReady, setAllConfigsReady] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
-  const [webVoiceItems, setWebVoiceItems] = useState<Item[]>([]);
   const [callStatus, setCallStatus] = useState("disconnected");
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [sessionConfig, setSessionConfig] = useState<any>(null);
-  const [activeTranscript, setActiveTranscript] = useState<"phone" | "web">("phone");
 
-  // Auto-switch to web voice transcript when first web voice message arrives
-  useEffect(() => {
-    if (webVoiceItems.length === 1 && items.length === 0) {
-      setActiveTranscript("web");
-    }
-  }, [webVoiceItems.length, items.length]);
 
 
   // Load saved configuration from localStorage on mount
@@ -126,59 +117,7 @@ const CallInterface = () => {
               setAllConfigsReady={setAllConfigsReady}
             />
             <OutboundCallPanel selectedPhoneNumber={selectedPhoneNumber} />
-            <WebVoiceAgent 
-              onTranscriptUpdate={setWebVoiceItems}
-              onConnectionChange={(connected) => {
-                if (connected) {
-                  // Only switch to web transcript if user actively starts web voice
-                  // Don't switch if they're viewing phone transcripts
-                  setWebVoiceItems([]); // Clear web voice transcript when starting new session
-                  // Switch to web view when web voice gets its first message
-                }
-              }}
-            />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex flex-col h-full">
-                {/* Show toggle buttons only if both transcripts have content */}
-                {items.length > 0 && webVoiceItems.length > 0 && (
-                  <div className="flex items-center justify-between mb-2 px-2">
-                    <span className="text-sm font-medium">
-                      {activeTranscript === "phone" ? (
-                        <span className="text-green-600">Phone Call Transcript</span>
-                      ) : (
-                        <span className="text-blue-600">Web Voice Transcript</span>
-                      )}
-                    </span>
-                    <button
-                      onClick={() => setActiveTranscript(activeTranscript === "phone" ? "web" : "phone")}
-                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
-                    >
-                      Switch to {activeTranscript === "phone" ? "Web Voice" : "Phone Calls"}
-                    </button>
-                  </div>
-                )}
-                
-                {/* Show single header if only one type has content */}
-                {items.length > 0 && webVoiceItems.length === 0 && (
-                  <div className="mb-2 px-2">
-                    <span className="text-sm font-medium text-green-600">Phone Call Transcript</span>
-                  </div>
-                )}
-                
-                {webVoiceItems.length > 0 && items.length === 0 && (
-                  <div className="mb-2 px-2">
-                    <span className="text-sm font-medium text-blue-600">Web Voice Transcript</span>
-                  </div>
-                )}
-                
-                {/* Display the active transcript */}
-                {activeTranscript === "phone" ? (
-                  <Transcript items={items} />
-                ) : (
-                  <Transcript items={webVoiceItems} />
-                )}
-              </div>
-            </div>
+            <Transcript items={items} />
           </div>
 
           {/* Right Column: Function Calls */}
