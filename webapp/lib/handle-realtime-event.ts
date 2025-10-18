@@ -56,9 +56,23 @@ export default function handleRealtimeEvent(
     case "conversation.item.created": {
       const { item } = ev;
       if (item.type === "message") {
+        console.log("Processing conversation.item.created:", item);
         // A completed message from user or assistant
-        const updatedContent =
-          item.content && item.content.length > 0 ? item.content : [];
+        let updatedContent = [];
+        
+        if (item.content && item.content.length > 0) {
+          // Convert audio content to text content for display
+          updatedContent = item.content.map((contentItem: any) => {
+            if (contentItem.type === "audio" && contentItem.transcript) {
+              console.log("Converting audio content to text:", contentItem.transcript);
+              return { type: "text", text: contentItem.transcript };
+            }
+            return contentItem;
+          });
+        }
+        
+        console.log("Final content for display:", updatedContent);
+        
         setItems((prev) => {
           const idx = prev.findIndex((m) => m.id === item.id);
           if (idx >= 0) {

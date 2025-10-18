@@ -22,6 +22,13 @@ const CallInterface = () => {
   const [sessionConfig, setSessionConfig] = useState<any>(null);
   const [activeTranscript, setActiveTranscript] = useState<"phone" | "web">("phone");
 
+  // Auto-switch to web voice transcript when first web voice message arrives
+  useEffect(() => {
+    if (webVoiceItems.length === 1 && items.length === 0) {
+      setActiveTranscript("web");
+    }
+  }, [webVoiceItems.length, items.length]);
+
   // Load saved configuration from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -122,41 +129,54 @@ const CallInterface = () => {
               onTranscriptUpdate={setWebVoiceItems}
               onConnectionChange={(connected) => {
                 if (connected) {
-                  setActiveTranscript("web");
+                  // Only switch to web transcript if user actively starts web voice
+                  // Don't switch if they're viewing phone transcripts
                   setWebVoiceItems([]); // Clear web voice transcript when starting new session
+                  // Switch to web view when web voice gets its first message
                 }
               }}
             />
             <div className="flex-1 flex flex-col overflow-hidden">
-              {activeTranscript === "web" && webVoiceItems.length > 0 ? (
-                <div className="flex flex-col h-full">
+              <div className="flex flex-col h-full">
+                {/* Show toggle buttons only if both transcripts have content */}
+                {items.length > 0 && webVoiceItems.length > 0 && (
                   <div className="flex items-center justify-between mb-2 px-2">
-                    <span className="text-sm font-medium text-blue-600">Web Voice Transcript</span>
+                    <span className="text-sm font-medium">
+                      {activeTranscript === "phone" ? (
+                        <span className="text-green-600">Phone Call Transcript</span>
+                      ) : (
+                        <span className="text-blue-600">Web Voice Transcript</span>
+                      )}
+                    </span>
                     <button
-                      onClick={() => setActiveTranscript("phone")}
-                      className="text-xs text-gray-500 hover:text-gray-700"
+                      onClick={() => setActiveTranscript(activeTranscript === "phone" ? "web" : "phone")}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
                     >
-                      Show Phone Calls
+                      Switch to {activeTranscript === "phone" ? "Web Voice" : "Phone Calls"}
                     </button>
                   </div>
-                  <Transcript items={webVoiceItems} />
-                </div>
-              ) : (
-                <div className="flex flex-col h-full">
-                  {webVoiceItems.length > 0 && (
-                    <div className="flex items-center justify-between mb-2 px-2">
-                      <span className="text-sm font-medium text-green-600">Phone Call Transcript</span>
-                      <button
-                        onClick={() => setActiveTranscript("web")}
-                        className="text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        Show Web Voice
-                      </button>
-                    </div>
-                  )}
+                )}
+                
+                {/* Show single header if only one type has content */}
+                {items.length > 0 && webVoiceItems.length === 0 && (
+                  <div className="mb-2 px-2">
+                    <span className="text-sm font-medium text-green-600">Phone Call Transcript</span>
+                  </div>
+                )}
+                
+                {webVoiceItems.length > 0 && items.length === 0 && (
+                  <div className="mb-2 px-2">
+                    <span className="text-sm font-medium text-blue-600">Web Voice Transcript</span>
+                  </div>
+                )}
+                
+                {/* Display the active transcript */}
+                {activeTranscript === "phone" ? (
                   <Transcript items={items} />
-                </div>
-              )}
+                ) : (
+                  <Transcript items={webVoiceItems} />
+                )}
+              </div>
             </div>
           </div>
 
